@@ -90,6 +90,8 @@
       <span>共 {{ total }} 条{{ meta.name }}记录</span>
       <span v-if="errorMessage" class="error-text">{{ errorMessage }}</span>
     </footer>
+
+    <EncodingRecoveryPanel v-if="meta.key === 'encoding_norm'" />
   </section>
 </template>
 
@@ -104,6 +106,7 @@ import {
   runAction as applyAction,
 } from '@/api/backend-service'
 import type { EntryRow } from '@/data/types'
+import EncodingRecoveryPanel from '@/views/EncodingRecoveryPanel.vue'
 
 const props = defineProps<{ moduleKey: string }>()
 const meta = moduleMeta(props.moduleKey)

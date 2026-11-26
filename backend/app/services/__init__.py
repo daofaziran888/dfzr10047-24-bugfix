@@ -5,6 +5,7 @@ from app.services.base import BaseModuleService
 from app.services.file_intake import FileIntakeService
 from app.services.format_probe import FormatProbeService
 from app.services.encoding_norm import EncodingNormService
+from app.services.encoding_recovery import EncodingRecoveryService
 from app.services.parser_route import ParserRouteService
 from app.services.extract_tmpl import ExtractTmplService
 from app.services.field_parse import FieldParseService
@@ -29,6 +30,7 @@ SERVICES: dict[str, BaseModuleService] = {
     "file_intake": FileIntakeService(),
     "format_probe": FormatProbeService(),
     "encoding_norm": EncodingNormService(),
+    "encoding_recovery": EncodingRecoveryService(),
     "parser_route": ParserRouteService(),
     "extract_tmpl": ExtractTmplService(),
     "field_parse": FieldParseService(),

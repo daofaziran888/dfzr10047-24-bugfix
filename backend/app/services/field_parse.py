@@ -1,4 +1,8 @@
-"""字段解析领域服务：按命中模板逐字段抽取取值并记录解析质量，产出解析字段数据集。"""
+"""字段解析领域服务：按命中模板逐字段抽取取值并记录解析质量，产出解析字段数据集。
+
+读入资格由编码归一核验：必须有已核定的转码输出，且该批次的失败编码记录已恢复；
+未知编码不会流入字段解析。
+"""
 from __future__ import annotations
 
 from typing import Any
@@ -17,11 +21,22 @@ class FieldParseService(BaseModuleService):
     ACTION_RULES = {"启动解析": "解析中", "确认成功": "解析成功", "登记部分失败": "部分失败"}
     NEGATIVE_ACTIONS = ["登记部分失败"]
 
+    def check_read_eligibility(self, intake_batch: str) -> tuple[bool, str, dict[str, Any]]:
+        """凭有效转码输出与失败编码记录核验读入资格。"""
+        from app.services.encoding_norm import EncodingNormService
+        return EncodingNormService().verify_read_eligibility(intake_batch)
+
     def record_parsed_field(self, parse_no: str, intake_batch: str, template_no: str,
                             field_name: str, raw_value: str, parsed_value: str,
                             elapsed_ms: int, row_num: int,
-                            success: bool) -> dict[str, Any]:
-        """登记单字段解析结果，解析失败的字段连同行号可供坏行隔离消费。"""
+                            success: bool,
+                            skip_eligibility: bool = False
+                            ) -> tuple[bool, str, dict[str, Any] | None]:
+        """登记单字段解析结果；读入资格不满足时拒绝落库，未知编码不流入字段解析。"""
+        if not skip_eligibility:
+            eligible, reason, _detail = self.check_read_eligibility(intake_batch)
+            if not eligible:
+                return False, reason, None
         rows = store.rows(self.MODULE)
         entry_id = max((int(r.get("id", 0)) for r in rows), default=0) + 1
         entry = {
@@ -39,7 +54,16 @@ class FieldParseService(BaseModuleService):
             "解析行号": str(row_num),
         }
         rows.append(entry)
-        return entry
+        return True, f"字段 {field_name}（行 {row_num}）已登记", entry
+
+    def parse_with_record(self, parse_no: str, intake_batch: str, template_no: str,
+                          field_name: str, raw_value: str, parsed_value: str,
+                          elapsed_ms: int, row_num: int, success: bool,
+                          ) -> tuple[bool, str, dict[str, Any] | None]:
+        """带读入资格核验的解析登记入口，页面与管线都走这一条。"""
+        return self.record_parsed_field(
+            parse_no, intake_batch, template_no, field_name, raw_value,
+            parsed_value, elapsed_ms, row_num, success)
 
     def failed_fields_of_batch(self, intake_batch: str) -> list[dict[str, Any]]:
         """输出解析失败字段清单（含行号），坏行隔离据此建隔离行。"""
